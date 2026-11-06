@@ -1,0 +1,200 @@
+{
+  "entities": {
+    "StudySession": {
+      "title": "StudySession",
+      "description": "Logs a completed student focus session with duration, subject tag, and distractions blocked.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated UID of the student who completed the session."
+        },
+        "subjectTag": {
+          "type": "string",
+          "description": "Study subject category (e.g., Engineering, Coding, Exam Prep, Mathematics)."
+        },
+        "durationMinutes": {
+          "type": "integer",
+          "description": "Focused duration in minutes."
+        },
+        "distractionsBlocked": {
+          "type": "integer",
+          "description": "Number of Shorts, distracting videos, or tab switches blocked during the session."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the session was logged via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the session was last updated via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "userId",
+        "subjectTag",
+        "durationMinutes",
+        "distractionsBlocked",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "StudyRoom": {
+      "title": "StudyRoom",
+      "description": "Live multiplayer collaborative student study room with synchronized Pomodoro timer.",
+      "type": "object",
+      "properties": {
+        "roomCode": {
+          "type": "string",
+          "description": "6-character alphanumeric invite code for the room."
+        },
+        "roomName": {
+          "type": "string",
+          "description": "Display title of the collaborative study room."
+        },
+        "subjectTag": {
+          "type": "string",
+          "description": "Primary study subject tag for the room."
+        },
+        "hostId": {
+          "type": "string",
+          "description": "Authenticated UID of the student who created the room."
+        },
+        "hostName": {
+          "type": "string",
+          "description": "Display name of the host student."
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["public", "private"],
+          "description": "Room visibility scope for list queries."
+        },
+        "timerDurationMinutes": {
+          "type": "integer",
+          "description": "Group Pomodoro target duration in minutes."
+        },
+        "activeMembersCount": {
+          "type": "integer",
+          "description": "Number of students actively studying in the room."
+        },
+        "lastReaction": {
+          "type": "string",
+          "description": "Latest silent accountability reaction sent in the room."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the room was created via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the room was updated via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "roomCode",
+        "roomName",
+        "subjectTag",
+        "hostId",
+        "hostName",
+        "visibility",
+        "timerDurationMinutes",
+        "activeMembersCount",
+        "lastReaction",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "RoomMember": {
+      "title": "RoomMember",
+      "description": "Live status, focused minutes, and distraction count of a student in a collaborative study room.",
+      "type": "object",
+      "properties": {
+        "roomId": {
+          "type": "string",
+          "description": "ID of the study room this member record belongs to."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Authenticated UID of the student."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of the student."
+        },
+        "subjectTag": {
+          "type": "string",
+          "description": "Current subject being studied by the student."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["Focusing", "On Break", "Distracted"],
+          "description": "Real-time focus telemetry status of the student."
+        },
+        "focusedMinutes": {
+          "type": "integer",
+          "description": "Total focused minutes completed in this room for leaderboard ranking."
+        },
+        "distractionCount": {
+          "type": "integer",
+          "description": "Total distraction events logged in this room."
+        },
+        "lastReaction": {
+          "type": "string",
+          "description": "Latest accountability badge/reaction from this student."
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["public", "private"],
+          "description": "Visibility aligned with the study room."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the member joined via FieldValue.serverTimestamp()."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the member status updated via FieldValue.serverTimestamp()."
+        }
+      },
+      "required": [
+        "roomId",
+        "userId",
+        "displayName",
+        "subjectTag",
+        "status",
+        "focusedMinutes",
+        "distractionCount",
+        "lastReaction",
+        "visibility",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/study_sessions/{sessionId}": {
+      "schema": {
+        "$ref": "#/entities/StudySession"
+      },
+      "description": "User-isolated study session history for focus analytics and streaks."
+    },
+    "/study_rooms/{roomId}": {
+      "schema": {
+        "$ref": "#/entities/StudyRoom"
+      },
+      "description": "Collaborative student study rooms supporting group Pomodoro and leaderboards."
+    },
+    "/room_members/{memberId}": {
+      "schema": {
+        "$ref": "#/entities/RoomMember"
+      },
+      "description": "Live student presence and leaderboard telemetry inside study rooms."
+    }
+  }
+}

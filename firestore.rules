@@ -1,0 +1,142 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 1: Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Validation Helper: StudySession
+    function isValidStudySession(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.subjectTag is string && data.subjectTag.size() >= 1 && data.subjectTag.size() <= 60 &&
+             data.durationMinutes is int && data.durationMinutes >= 1 && data.durationMinutes <= 600 &&
+             data.distractionsBlocked is int && data.distractionsBlocked >= 0 && data.distractionsBlocked <= 1000 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // Validation Helper: StudyRoom
+    function isValidStudyRoom(data) {
+      return data.roomCode is string && data.roomCode.size() == 6 && data.roomCode.matches('^[A-Z0-9]+$') &&
+             data.roomName is string && data.roomName.size() >= 2 && data.roomName.size() <= 60 &&
+             data.subjectTag is string && data.subjectTag.size() >= 2 && data.subjectTag.size() <= 40 &&
+             data.hostId is string && data.hostId.size() >= 1 && data.hostId.size() <= 128 &&
+             data.hostName is string && data.hostName.size() >= 1 && data.hostName.size() <= 60 &&
+             data.visibility is string && (data.visibility == 'public' || data.visibility == 'private') &&
+             data.timerDurationMinutes is int && data.timerDurationMinutes >= 5 && data.timerDurationMinutes <= 180 &&
+             data.activeMembersCount is int && data.activeMembersCount >= 1 && data.activeMembersCount <= 200 &&
+             data.lastReaction is string && data.lastReaction.size() <= 40 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // Validation Helper: RoomMember
+    function isValidRoomMember(data) {
+      return data.roomId is string && data.roomId.size() >= 1 && data.roomId.size() <= 128 &&
+             data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 60 &&
+             data.subjectTag is string && data.subjectTag.size() >= 1 && data.subjectTag.size() <= 40 &&
+             data.status is string && (data.status == 'Focusing' || data.status == 'On Break' || data.status == 'Distracted') &&
+             data.focusedMinutes is int && data.focusedMinutes >= 0 && data.focusedMinutes <= 10000 &&
+             data.distractionCount is int && data.distractionCount >= 0 && data.distractionCount <= 1000 &&
+             data.lastReaction is string && data.lastReaction.size() <= 40 &&
+             data.visibility is string && (data.visibility == 'public' || data.visibility == 'private') &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // 1. Study Sessions Collection (Strict User Isolation)
+    match /study_sessions/{sessionId} {
+      allow get: if isSignedIn() && isValidId(sessionId) && existing().userId == request.auth.uid;
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+                       isValidId(sessionId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'subjectTag', 'durationMinutes', 'distractionsBlocked', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'subjectTag', 'durationMinutes', 'distractionsBlocked', 'createdAt', 'updatedAt']) &&
+                       isValidStudySession(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(sessionId) &&
+                       isValidStudySession(incoming()) &&
+                       existing().userId == request.auth.uid &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['subjectTag', 'durationMinutes', 'distractionsBlocked', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(sessionId) && existing().userId == request.auth.uid;
+    }
+
+    // 2. Collaborative Study Rooms Collection
+    match /study_rooms/{roomId} {
+      allow get: if isSignedIn() && isValidId(roomId) && (existing().hostId == request.auth.uid || existing().visibility == 'public');
+      allow list: if isSignedIn() && (existing().hostId == request.auth.uid || existing().visibility == 'public');
+
+      allow create: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       incoming().hostId == request.auth.uid &&
+                       incoming().keys().hasAll(['roomCode', 'roomName', 'subjectTag', 'hostId', 'hostName', 'visibility', 'timerDurationMinutes', 'activeMembersCount', 'lastReaction', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['roomCode', 'roomName', 'subjectTag', 'hostId', 'hostName', 'visibility', 'timerDurationMinutes', 'activeMembersCount', 'lastReaction', 'createdAt', 'updatedAt']) &&
+                       isValidStudyRoom(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(roomId) &&
+                       isValidStudyRoom(incoming()) &&
+                       incoming().hostId == existing().hostId &&
+                       incoming().roomCode == existing().roomCode &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         // Action 1: Host updates room settings or state
+                         (existing().hostId == request.auth.uid &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['roomName', 'subjectTag', 'visibility', 'timerDurationMinutes', 'activeMembersCount', 'lastReaction', 'updatedAt'])) ||
+                         // Action 2: Public room participant updates member count or sends reaction
+                         (existing().visibility == 'public' &&
+                          incoming().diff(existing()).affectedKeys().hasOnly(['activeMembersCount', 'lastReaction', 'updatedAt']))
+                       );
+
+      allow delete: if isSignedIn() && isValidId(roomId) && existing().hostId == request.auth.uid;
+    }
+
+    // 3. Room Members Presence & Leaderboard Collection
+    match /room_members/{memberId} {
+      allow get: if isSignedIn() && isValidId(memberId) && (resource == null || existing().userId == request.auth.uid || existing().visibility == 'public');
+      allow list: if isSignedIn() && (existing().userId == request.auth.uid || existing().visibility == 'public');
+
+      allow create: if isSignedIn() &&
+                       isValidId(memberId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['roomId', 'userId', 'displayName', 'subjectTag', 'status', 'focusedMinutes', 'distractionCount', 'lastReaction', 'visibility', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['roomId', 'userId', 'displayName', 'subjectTag', 'status', 'focusedMinutes', 'distractionCount', 'lastReaction', 'visibility', 'createdAt', 'updatedAt']) &&
+                       isValidRoomMember(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(memberId) &&
+                       isValidRoomMember(incoming()) &&
+                       existing().userId == request.auth.uid &&
+                       incoming().userId == existing().userId &&
+                       incoming().roomId == existing().roomId &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'subjectTag', 'status', 'focusedMinutes', 'distractionCount', 'lastReaction', 'visibility', 'createdAt', 'updatedAt']);
+
+      allow delete: if isSignedIn() && isValidId(memberId) && existing().userId == request.auth.uid;
+    }
+  }
+}

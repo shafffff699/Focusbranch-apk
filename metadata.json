@@ -1,0 +1,6 @@
+{
+  "name": "Regain Focus",
+  "description": "Smart AI YouTube study filter, Shorts blocker, strict focus timer, and live collaborative study rooms.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

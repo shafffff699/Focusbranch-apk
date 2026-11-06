@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">Regain Focus</string>
+    <string name="tagline">AI Study Filter, Shorts Blocker &amp; Live Study Rooms</string>
+    <string name="sign_in_google">Sign in with Google</string>
+    <string name="tab_timer">Focus</string>
+    <string name="tab_filter">Study Tube</string>
+    <string name="tab_rooms">Study Rooms</string>
+    <string name="tab_analytics">Analytics &amp; DB</string>
+    <string name="tab_shield">Shield Setup</string>
+    <string name="strict_mode_quiz_title">Strict Mode Unlock Quiz</string>
+    <string name="shorts_blocked_title">YouTube Shorts Blocked — Stay Focused!</string>
+    <string name="distraction_blocked_title">Distraction Blocked by Regain AI</string>
+    <string name="export_weekly_report">Export Weekly Study Report</string>
+</resources>
